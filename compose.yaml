@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: spicehouse
+      POSTGRES_USER: spicehouse
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spicehouse -d spicehouse"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  api:
+    build: ./api
+    image: ${IMAGE_PREFIX:-spicehouse}/api:${IMAGE_TAG:-local}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://spicehouse:${DB_PASSWORD:?Set DB_PASSWORD in .env}@db:5432/spicehouse
+    depends_on:
+      db: {condition: service_healthy}
+  web:
+    build: ./web
+    image: ${IMAGE_PREFIX:-spicehouse}/web:${IMAGE_TAG:-local}
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      - api
+volumes:
+  db_data:
